@@ -1,13 +1,10 @@
 "use client"
 
-import { TrendingUp } from "lucide-react"
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts"
-
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -17,86 +14,70 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-
-export const description = "A line chart"
-
-const chartData = [
-  { month: "January", desktop: 186 },
-  { month: "February", desktop: 305 },
-  { month: "March", desktop: 237 },
-  { month: "April", desktop: 73 },
-  { month: "May", desktop: 209 },
-  { month: "June", desktop: 214 },
-]
+import {Transaction} from "@/components/types/Transaction"
 
 const chartConfig = {
-  desktop: {
-    label: "Desktop",
-    color: "var(--chart-1)",
+  amount: {
+    label: "Suma wydatków",
+    color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig
 
-export function ChartLineDefault({
-  data = chartData,
-  config = chartConfig,
-  title = "Line Chart",
-  description = "January - June 2024",
-  xAxisKey = "month",
-  lineDataKey = "desktop",
-}: {
-  data?: any[]
-  config?: ChartConfig
-  title?: string
-  description?: string
-  xAxisKey?: string
-  lineDataKey?: string
-}) {
+export function TransactionLineChart({ transactions }: { transactions: Transaction[] }) {
+  // Grupowanie wydatków (amount < 0) po dacie
+  const chartData = transactions
+    .filter((t) => t.amount < 0)
+    .reduce((acc, curr) => {
+      const date = new Date(curr.date).toLocaleDateString("pl-PL", {
+        month: "short",
+        day: "numeric",
+      })
+      const existing = acc.find((item) => item.date === date)
+      if (existing) {
+        existing.amount += Math.abs(curr.amount)
+      } else {
+        acc.push({ date, amount: Math.abs(curr.amount) })
+      }
+      return acc
+    }, [] as { date: string; amount: number }[])
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardTitle>Historia Wydatków</CardTitle>
+        <CardDescription>Dzienne podsumowanie kosztów</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={config}>
+        <ChartContainer config={chartConfig}>
           <LineChart
             accessibilityLayer
-            data={data}
-            margin={{
-              left: 12,
-              right: 12,
-            }}
+            data={chartData}
+            margin={{ left: 12, right: 12 }}
           >
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey={xAxisKey}
+              dataKey="date"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => value.slice(0, 3)}
             />
+            <YAxis hide domain={["auto", "auto"]} />
             <ChartTooltip
               cursor={false}
               content={<ChartTooltipContent hideLabel />}
             />
             <Line
-              dataKey={lineDataKey}
-              type="natural"
-              stroke={`var(--color-${lineDataKey})`}
+              dataKey="amount"
+              type="monotone"
+              stroke="var(--chart-1)"
               strokeWidth={2}
-              dot={false}
+              dot={{ fill: "var(--chart-1)" }}
+              activeDot={{ r: 6 }}
             />
           </LineChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className="flex-col items-start gap-2 text-sm">
-        <div className="flex gap-2 leading-none font-medium">
-          Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
-        </div>
-        <div className="text-muted-foreground leading-none">
-          Showing total visitors for the last 6 months
-        </div>
-      </CardFooter>
     </Card>
   )
 }

@@ -1,8 +1,7 @@
 "use client"
 
+import { Pie, PieChart, LabelList } from "recharts"
 import { TrendingUp } from "lucide-react"
-import { LabelList, Pie, PieChart } from "recharts"
-
 import {
   Card,
   CardContent,
@@ -18,84 +17,66 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 
-export const description = "A pie chart with a label list"
+import {Transaction} from "@/components/types/Transaction"
 
+export function CategoryPieChart({ transactions }: { transactions: Transaction[] }) {
+  // 1. Filtrowanie i agregacja danych
+  const aggregatedData = transactions
+    .filter((t) => t.amount < 0) // Tylko wydatki
+    .reduce((acc, curr) => {
+      const category = curr.category || "Inne"
+      const amount = Math.abs(curr.amount)
+      
+      const existing = acc.find((item) => item.category === category)
+      if (existing) {
+        existing.amount += amount
+      } else {
+        acc.push({ category, amount, fill: "" })
+      }
+      return acc
+    }, [] as { category: string; amount: number; fill: string }[])
+    .map((item, index) => ({
+      ...item,
+      fill: `var(--chart-${(index % 5) + 1})`, // Przypisanie koloru z CSS
+    }))
 
+  // 2. Dynamiczny config dla kolorów i etykiet
+  const chartConfig = aggregatedData.reduce((acc, curr) => {
+    acc[curr.category] = {
+      label: curr.category,
+      color: curr.fill,
+    }
+    return acc;
+  }, { amount: { label: "Suma" } } as ChartConfig)
 
-
-const chartData = [
-  { browser: "chrome", visitors: 275, fill: "var(--color-chrome)" },
-  { browser: "safari", visitors: 200, fill: "var(--color-safari)" },
-  { browser: "firefox", visitors: 187, fill: "var(--color-firefox)" },
-  { browser: "edge", visitors: 173, fill: "var(--color-edge)" },
-  { browser: "other", visitors: 90, fill: "var(--color-other)" },
-]
-
-const chartConfig = {
-  visitors: {
-    label: "Visitors",
-  },
-  chrome: {
-    label: "Chrome",
-    color: "var(--chart-1)",
-  },
-  safari: {
-    label: "Safari",
-    color: "var(--chart-2)",
-  },
-  firefox: {
-    label: "Firefox",
-    color: "var(--chart-3)",
-  },
-  edge: {
-    label: "Edge",
-    color: "var(--chart-4)",
-  },
-  other: {
-    label: "Other",
-    color: "var(--chart-5)",
-  },
-} satisfies ChartConfig
-
-export function ChartPieLabelList({
-  data = chartData,
-  config = chartConfig,
-  dataKey = "visitors",
-  nameKey = "browser",
-  title = "Pie Chart - Label List",
-  description = "January - June 2024",
-}: {
-  data?: any[]
-  config?: ChartConfig
-  dataKey?: string
-  nameKey?: string
-  title?: string
-  description?: string
-}) {
   return (
     <Card className="flex flex-col">
       <CardHeader className="items-center pb-0">
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardTitle>Podział Wydatków</CardTitle>
+        <CardDescription>Kategorie rozpoznane przez AI</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 pb-0">
         <ChartContainer
-          config={config}
-          className="[&_.recharts-text]:fill-background mx-auto aspect-square max-h-[250px]"
+          config={chartConfig}
+          className="mx-auto aspect-square max-h-[250px]"
         >
           <PieChart>
             <ChartTooltip
-              content={<ChartTooltipContent nameKey={dataKey} hideLabel />}
+              content={<ChartTooltipContent nameKey="amount" hideLabel />}
             />
-            <Pie data={data} dataKey={dataKey}>
+            <Pie
+              data={aggregatedData}
+              dataKey="amount"
+              nameKey="category"
+              innerRadius={60}
+              strokeWidth={5}
+            >
               <LabelList
-                dataKey={nameKey}
-                className="fill-background"
+                dataKey="category"
+                className="fill-foreground"
                 stroke="none"
                 fontSize={12}
-                formatter={(value: string) =>
-                  config[value]?.label || value
-                }
+                formatter={(value: string) => chartConfig[value]?.label}
               />
             </Pie>
           </PieChart>
@@ -103,10 +84,10 @@ export function ChartPieLabelList({
       </CardContent>
       <CardFooter className="flex-col gap-2 text-sm">
         <div className="flex items-center gap-2 leading-none font-medium">
-          Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
+          Największa kategoria: {aggregatedData.sort((a, b) => b.amount - a.amount)[0]?.category}
         </div>
         <div className="text-muted-foreground leading-none">
-          Showing total visitors for the last 6 months
+          Dane bazują na {transactions.length} transakcjach
         </div>
       </CardFooter>
     </Card>
